@@ -20,16 +20,16 @@ def register():
 @app.route('/discover/<service_name>', methods=['GET'])
 def discover(service_name):
     response = requests.get(JSONBIN_URL, headers=HEADERS)
-    
-    # Debug: Print raw response for troubleshooting
-    print("JSONBin Response:", response.json())
+
+    # Debug: Print the raw JSONBin response
+    print("DEBUG: JSONBin Response:", response.json())
 
     if response.status_code != 200:
         return jsonify({"error": "Failed to fetch services"}), 500
 
     data = response.json()
 
-    # Ensure we correctly extract the services dictionary
+    # Extract services correctly
     services = data.get("record", {}).get("services", {})
 
     if service_name in services:
