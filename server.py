@@ -25,5 +25,11 @@ def discover(service_name):
         return jsonify(services[service_name]), 200
     return jsonify({"error": "Service not found"}), 404
 
+@app.route('/discover/all', methods=['GET'])
+def discover_all():
+    response = requests.get(JSONBIN_URL, headers=HEADERS)
+    return response.json()
+
+
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=8080)
