@@ -7,6 +7,10 @@ app = Flask(__name__)
 JSONBIN_URL = "https://api.jsonbin.io/v3/b/YOUR_BIN_ID"
 HEADERS = {"X-Master-Key": "YOUR_API_KEY"}
 
+@app.route('/')
+def home():
+    return jsonify({"message": "Service Discovery is running!"})
+
 @app.route('/register', methods=['POST'])
 def register():
     data = request.json
