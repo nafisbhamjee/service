@@ -14,8 +14,23 @@ def home():
 @app.route('/register', methods=['POST'])
 def register():
     data = request.json
-    requests.put(JSONBIN_URL, json={"services": data}, headers=HEADERS)
-    return jsonify({"message": f"Service {data['name']} registered!"}), 200
+    service_name = data['name']  # Extract service name
+
+    # Fetch existing services from JSONBin
+    response = requests.get(JSONBIN_URL, headers=HEADERS)
+    services = response.json().get("record", {}).get("services", {})
+
+    # Correctly save the service using its name as the key
+    services[service_name] = {"ip": data['ip'], "port": data['port']}
+
+    # Save the updated services list back to JSONBin
+    update_response = requests.put(JSONBIN_URL, json={"services": services}, headers=HEADERS)
+
+    if update_response.status_code == 200:
+        return jsonify({"message": f"Service {service_name} registered correctly!"}), 200
+    else:
+        return jsonify({"error": "Failed to update service registry"}), 500
+
 
 @app.route('/discover/<service_name>', methods=['GET'])
 def discover(service_name):
