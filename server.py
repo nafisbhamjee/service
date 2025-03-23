@@ -5,8 +5,8 @@ from datetime import datetime, timedelta
 app = Flask(__name__)
 
 # JSONBin API Setup
-JSONBIN_URL = "https://api.jsonbin.io/v3/b/YOUR_BIN_ID"
-HEADERS = {"X-Master-Key": "YOUR_API_KEY"}
+JSONBIN_URL = "https://api.jsonbin.io/v3/b/67df09398960c979a5767fed"
+HEADERS = {"X-Master-Key": "$2a$10$4j8yKgEgSsJS0KyHF0qcyO1cGcUDvkTCqVCRj6D4Im1FpRuHdD5di"}
 
 # Caching Services to Reduce API Calls
 CACHE = {}
