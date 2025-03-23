@@ -32,11 +32,10 @@ def register_service():
         json_data = response.json().get("record", {})
 
         # ✅ Ensure "services" and "messages" keys exist
-        if "services" not in json_data:
-            json_data["services"] = {}
-        if "messages" not in json_data:
-            json_data["messages"] = {}  # Prevent messages from disappearing!
+        json_data.setdefault("services", {})  
+        json_data.setdefault("messages", {})  
 
+        # ✅ Update the services dictionary
         json_data["services"][service_name] = {
             "ip": ip,
             "port": port,
