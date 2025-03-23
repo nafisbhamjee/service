@@ -12,13 +12,27 @@ HEADERS = {"X-Master-Key": "$2a$10$4j8yKgEgSsJS0KyHF0qcyO1cGcUDvkTCqVCRj6D4Im1Fp
 # 🚀 1️⃣ REGISTER A SERVICE
 # ==============================
 @app.route('/register', methods=['POST'])
+@app.route('/register', methods=['POST'])
 def register_service():
-    """Registers a microservice while preserving existing services and messages"""
+    """Registers a microservice only if it is actually running"""
     try:
         data = request.json
         service_name = data.get("name")
         ip = data.get("ip")
         port = data.get("port")
+
+        # ✅ Check if the service is actually running
+        health_url = f"http://{ip}:{port}/health"
+        try:
+            health_response = requests.get(health_url, timeout=3)
+            if health_response.status_code != 200:
+                return jsonify({
+                    "error": f"Health check failed for {service_name}. It may not be running."
+                }), 400
+        except requests.exceptions.RequestException:
+            return jsonify({
+                "error": f"Could not reach {service_name} at {health_url}. Registration failed."
+            }), 400
 
         # ✅ Fetch the latest JSONBin data
         response = requests.get(JSONBIN_URL, headers=HEADERS)
@@ -35,14 +49,14 @@ def register_service():
         existing_services = json_data.get("services", {})
         existing_messages = json_data.get("messages", {})
 
-        # ✅ Update the services dictionary without affecting messages
+        # ✅ Register the service
         existing_services[service_name] = {
             "ip": ip,
             "port": port,
             "lastUpdated": datetime.now(timezone.utc).isoformat()
         }
 
-        # ✅ Send only the updated data to JSONBin, preserving both `services` and `messages`
+        # ✅ Save the update back to JSONBin
         put_response = requests.put(JSONBIN_URL, json={
             "services": existing_services, 
             "messages": existing_messages  # Preserve messages!
