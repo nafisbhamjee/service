@@ -12,7 +12,6 @@ HEADERS = {"X-Master-Key": "$2a$10$4j8yKgEgSsJS0KyHF0qcyO1cGcUDvkTCqVCRj6D4Im1Fp
 # 🚀 1️⃣ REGISTER A SERVICE
 # ==============================
 @app.route('/register', methods=['POST'])
-@app.route('/register', methods=['POST'])
 def register_service():
     """Registers a microservice only if it is actually running"""
     try:
@@ -21,22 +20,30 @@ def register_service():
         ip = data.get("ip")
         port = data.get("port")
 
-        # ✅ Check if the service is actually running
-        health_url = f"http://{ip}:{port}/health"
-        try:
-            health_response = requests.get(health_url, timeout=3)
-            if health_response.status_code != 200:
-                return jsonify({
-                    "error": f"Health check failed for {service_name}. It may not be running."
-                }), 400
-        except requests.exceptions.RequestException:
+        # ✅ Try multiple connection methods (Localhost, Internal IP, External IP)
+        possible_urls = [
+            f"http://{ip}:{port}/health",  
+            f"http://127.0.0.1:{port}/health"  # Try localhost for local registrations
+        ]
+
+        # ✅ Attempt all possible URLs
+        health_check_success = False
+        for health_url in possible_urls:
+            try:
+                health_response = requests.get(health_url, timeout=3)
+                if health_response.status_code == 200:
+                    health_check_success = True
+                    break  # Stop checking if any URL works
+            except requests.exceptions.RequestException:
+                continue  # Try the next URL
+
+        if not health_check_success:
             return jsonify({
-                "error": f"Could not reach {service_name} at {health_url}. Registration failed."
+                "error": f"Could not reach {service_name}. Registration failed."
             }), 400
 
         # ✅ Fetch the latest JSONBin data
         response = requests.get(JSONBIN_URL, headers=HEADERS)
-
         if response.status_code != 200:
             return jsonify({
                 "error": f"Failed to fetch services. JSONBin Status: {response.status_code}",
@@ -81,7 +88,6 @@ def register_service():
             "error": "Internal Server Error",
             "details": str(e)
         }), 500
-
 
 # ==============================
 # 🚀 2️⃣ DISCOVER A SERVICE
