@@ -84,16 +84,42 @@ def store_message():
 @app.route('/relay/receive/<recipient>', methods=['GET'])
 def get_messages(recipient):
     """Microservices pull messages from the relay"""
-    response = requests.get(JSONBIN_URL, headers=HEADERS)
-    json_data = response.json().get("record", {})
+    try:
+        response = requests.get(JSONBIN_URL, headers=HEADERS)
+        
+        # 🚨 Handle JSONBin Failure
+        if response.status_code != 200:
+            return jsonify({
+                "error": f"Failed to fetch messages. JSONBin Status: {response.status_code}",
+                "details": response.text
+            }), 500
 
-    messages = json_data.get("messages", {}).get(recipient, [])
+        json_data = response.json().get("record", {})
 
-    # Clear messages once fetched
-    json_data["messages"][recipient] = []
-    requests.put(JSONBIN_URL, json={"messages": json_data["messages"]}, headers=HEADERS)
+        # ✅ Ensure "messages" key exists
+        if "messages" not in json_data:
+            json_data["messages"] = {}
 
-    return jsonify({"messages": messages}), 200
+        messages = json_data["messages"].get(recipient, [])
+
+        # Clear messages only if recipient exists
+        json_data["messages"][recipient] = []
+
+        requests.put(JSONBIN_URL, json={"messages": json_data["messages"]}, headers=HEADERS)
+
+        return jsonify({"messages": messages})  # ✅ Always return JSON
+
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            "error": "JSONBin request failed",
+            "details": str(e)
+        }), 500
+
+    except Exception as e:
+        return jsonify({
+            "error": "Internal Server Error",
+            "details": str(e)
+        }), 500
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=8080, debug=True)
