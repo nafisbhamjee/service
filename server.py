@@ -14,26 +14,57 @@ HEADERS = {"X-Master-Key": "$2a$10$4j8yKgEgSsJS0KyHF0qcyO1cGcUDvkTCqVCRj6D4Im1Fp
 @app.route('/register', methods=['POST'])
 def register_service():
     """Registers a microservice with the relay"""
-    data = request.json
-    service_name = data.get("name")
-    ip = data.get("ip")
-    port = data.get("port")
+    try:
+        data = request.json
+        service_name = data.get("name")
+        ip = data.get("ip")
+        port = data.get("port")
 
-    # Fetch current services
-    response = requests.get(JSONBIN_URL, headers=HEADERS)
-    json_data = response.json().get("record", {})
+        response = requests.get(JSONBIN_URL, headers=HEADERS)
 
-    if "services" not in json_data:
-        json_data["services"] = {}
+        # 🚨 Handle JSONBin Failure
+        if response.status_code != 200:
+            return jsonify({
+                "error": f"Failed to fetch services. JSONBin Status: {response.status_code}",
+                "details": response.text
+            }), 500
 
-    json_data["services"][service_name] = {
-        "ip": ip,
-        "port": port,
-        "lastUpdated": datetime.utcnow().isoformat()
-    }
+        json_data = response.json().get("record", {})
 
-    requests.put(JSONBIN_URL, json={"services": json_data["services"]}, headers=HEADERS)
-    return jsonify({"status": f"Service '{service_name}' registered!"}), 200
+        # ✅ Ensure "services" and "messages" keys exist
+        if "services" not in json_data:
+            json_data["services"] = {}
+        if "messages" not in json_data:
+            json_data["messages"] = {}  # Prevent messages from disappearing!
+
+        json_data["services"][service_name] = {
+            "ip": ip,
+            "port": port,
+            "lastUpdated": datetime.now(timezone.utc).isoformat()
+        }
+
+        # ✅ Update JSONBin while keeping both keys
+        put_response = requests.put(JSONBIN_URL, json=json_data, headers=HEADERS)
+
+        if put_response.status_code != 200:
+            return jsonify({
+                "error": f"Failed to update JSONBin. Status: {put_response.status_code}",
+                "details": put_response.text
+            }), 500
+
+        return jsonify({"status": f"Service '{service_name}' registered!"}), 200
+
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            "error": "JSONBin request failed",
+            "details": str(e)
+        }), 500
+
+    except Exception as e:
+        return jsonify({
+            "error": "Internal Server Error",
+            "details": str(e)
+        }), 500
 
 # ==============================
 # 🚀 2️⃣ DISCOVER A SERVICE
