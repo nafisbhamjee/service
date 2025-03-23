@@ -13,7 +13,7 @@ HEADERS = {"X-Master-Key": "$2a$10$4j8yKgEgSsJS0KyHF0qcyO1cGcUDvkTCqVCRj6D4Im1Fp
 # ==============================
 @app.route('/register', methods=['POST'])
 def register_service():
-    """Registers a microservice with the relay while preserving messages"""
+    """Registers a microservice with the relay while preserving existing services and messages"""
     try:
         data = request.json
         service_name = data.get("name")
@@ -63,6 +63,7 @@ def register_service():
             "error": "Internal Server Error",
             "details": str(e)
         }), 500
+
 
 # ==============================
 # 🚀 2️⃣ DISCOVER A SERVICE
@@ -178,6 +179,50 @@ def get_messages(recipient):
             "error": "Internal Server Error",
             "details": str(e)
         }), 500
+    
+
+    @app.route('/services', methods=['GET'])
+    def list_services():
+        """Returns a list of all registered services"""
+        try:
+            response = requests.get(JSONBIN_URL, headers=HEADERS)
+
+            # 🚨 Check if JSONBin API call failed
+            if response.status_code != 200:
+                return jsonify({
+                    "error": f"Failed to fetch services. JSONBin Status: {response.status_code}",
+                    "details": response.text
+                }), 500
+
+            # 🚨 Handle potential JSON decoding errors
+            try:
+                json_data = response.json()
+            except requests.exceptions.JSONDecodeError:
+                return jsonify({
+                    "error": "Invalid JSON response from JSONBin",
+                    "details": response.text
+                }), 500
+
+            # ✅ Ensure "record" key exists
+            json_data = json_data.get("record", {})
+            
+            # ✅ Ensure "services" exists, otherwise return an empty dict
+            services = json_data.get("services", {})
+
+            return jsonify({"services": services}), 200
+
+        except requests.exceptions.RequestException as e:
+            return jsonify({
+                "error": "JSONBin request failed",
+                "details": str(e)
+            }), 500
+
+        except Exception as e:
+            return jsonify({
+                "error": "Internal Server Error",
+                "details": str(e)
+            }), 500
+
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=8080, debug=True)
