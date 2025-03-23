@@ -181,47 +181,50 @@ def get_messages(recipient):
         }), 500
     
 
-    @app.route('/services', methods=['GET'])
-    def list_services():
-        """Returns a list of all registered services"""
+# ==============================
+# 🚀 5️⃣ LIST ALL REGISTERED SERVICES
+# ==============================
+@app.route('/services', methods=['GET'])
+def list_services():
+    """Returns a list of all registered services"""
+    try:
+        response = requests.get(JSONBIN_URL, headers=HEADERS)
+
+        # 🚨 Check if JSONBin API call failed
+        if response.status_code != 200:
+            return jsonify({
+                "error": f"Failed to fetch services. JSONBin Status: {response.status_code}",
+                "details": response.text
+            }), 500
+
+        # 🚨 Handle potential JSON decoding errors
         try:
-            response = requests.get(JSONBIN_URL, headers=HEADERS)
-
-            # 🚨 Check if JSONBin API call failed
-            if response.status_code != 200:
-                return jsonify({
-                    "error": f"Failed to fetch services. JSONBin Status: {response.status_code}",
-                    "details": response.text
-                }), 500
-
-            # 🚨 Handle potential JSON decoding errors
-            try:
-                json_data = response.json()
-            except requests.exceptions.JSONDecodeError:
-                return jsonify({
-                    "error": "Invalid JSON response from JSONBin",
-                    "details": response.text
-                }), 500
-
-            # ✅ Ensure "record" key exists
-            json_data = json_data.get("record", {})
-            
-            # ✅ Ensure "services" exists, otherwise return an empty dict
-            services = json_data.get("services", {})
-
-            return jsonify({"services": services}), 200
-
-        except requests.exceptions.RequestException as e:
+            json_data = response.json()
+        except requests.exceptions.JSONDecodeError:
             return jsonify({
-                "error": "JSONBin request failed",
-                "details": str(e)
+                "error": "Invalid JSON response from JSONBin",
+                "details": response.text
             }), 500
 
-        except Exception as e:
-            return jsonify({
-                "error": "Internal Server Error",
-                "details": str(e)
-            }), 500
+        # ✅ Ensure "record" key exists
+        json_data = json_data.get("record", {})
+
+        # ✅ Ensure "services" exists, otherwise return an empty dict
+        services = json_data.get("services", {})
+
+        return jsonify({"services": services}), 200
+
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            "error": "JSONBin request failed",
+            "details": str(e)
+        }), 500
+
+    except Exception as e:
+        return jsonify({
+            "error": "Internal Server Error",
+            "details": str(e)
+        }), 500
 
 
 if __name__ == '__main__':
