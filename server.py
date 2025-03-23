@@ -13,7 +13,7 @@ HEADERS = {"X-Master-Key": "$2a$10$4j8yKgEgSsJS0KyHF0qcyO1cGcUDvkTCqVCRj6D4Im1Fp
 # ==============================
 @app.route('/register', methods=['POST'])
 def register_service():
-    """Registers a microservice with the relay"""
+    """Registers a microservice with the relay while preserving messages"""
     try:
         data = request.json
         service_name = data.get("name")
@@ -32,10 +32,8 @@ def register_service():
         json_data = response.json().get("record", {})
 
         # ✅ Ensure "services" and "messages" keys exist
-        if "services" not in json_data:
-            json_data["services"] = {}
-        if "messages" not in json_data:
-            json_data["messages"] = {}  # Prevent messages from disappearing!
+        json_data.setdefault("services", {})
+        json_data.setdefault("messages", {})
 
         json_data["services"][service_name] = {
             "ip": ip,
@@ -84,30 +82,59 @@ def discover_service(service_name):
 # ==============================
 @app.route('/relay/send', methods=['POST'])
 def store_message():
-    """Microservices push messages to the relay"""
-    data = request.json
-    sender = data.get("sender")
-    recipient = data.get("recipient")
-    message = data.get("message")
+    """Microservices push messages to the relay while preserving services"""
+    try:
+        data = request.json
+        sender = data.get("sender")
+        recipient = data.get("recipient")
+        message = data.get("message")
 
-    # Fetch current messages
-    response = requests.get(JSONBIN_URL, headers=HEADERS)
-    json_data = response.json().get("record", {})
+        response = requests.get(JSONBIN_URL, headers=HEADERS)
 
-    if "messages" not in json_data:
-        json_data["messages"] = {}
+        # 🚨 Handle JSONBin Failure
+        if response.status_code != 200:
+            return jsonify({
+                "error": f"Failed to fetch messages. JSONBin Status: {response.status_code}",
+                "details": response.text
+            }), 500
 
-    if recipient not in json_data["messages"]:
-        json_data["messages"][recipient] = []
+        json_data = response.json().get("record", {})
 
-    json_data["messages"][recipient].append({
-        "from": sender,
-        "message": message,
-        "timestamp": datetime.utcnow().isoformat()
-    })
+        # ✅ Ensure "services" and "messages" keys exist
+        json_data.setdefault("services", {})
+        json_data.setdefault("messages", {})
 
-    requests.put(JSONBIN_URL, json={"messages": json_data["messages"]}, headers=HEADERS)
-    return jsonify({"status": "Message stored"}), 200
+        if recipient not in json_data["messages"]:
+            json_data["messages"][recipient] = []
+
+        json_data["messages"][recipient].append({
+            "from": sender,
+            "message": message,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+
+        # ✅ Update JSONBin while keeping both keys
+        put_response = requests.put(JSONBIN_URL, json=json_data, headers=HEADERS)
+
+        if put_response.status_code != 200:
+            return jsonify({
+                "error": f"Failed to update JSONBin. Status: {put_response.status_code}",
+                "details": put_response.text
+            }), 500
+
+        return jsonify({"status": "Message stored"}), 200
+
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            "error": "JSONBin request failed",
+            "details": str(e)
+        }), 500
+
+    except Exception as e:
+        return jsonify({
+            "error": "Internal Server Error",
+            "details": str(e)
+        }), 500
 
 # ==============================
 # 🚀 4️⃣ GET MESSAGES FOR A MICROSERVICE
