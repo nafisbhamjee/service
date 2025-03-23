@@ -13,16 +13,16 @@ HEADERS = {"X-Master-Key": "$2a$10$4j8yKgEgSsJS0KyHF0qcyO1cGcUDvkTCqVCRj6D4Im1Fp
 # ==============================
 @app.route('/register', methods=['POST'])
 def register_service():
-    """Registers a microservice with the relay while preserving existing services and messages"""
+    """Registers a microservice while preserving existing services and messages"""
     try:
         data = request.json
         service_name = data.get("name")
         ip = data.get("ip")
         port = data.get("port")
 
+        # ✅ Fetch the latest JSONBin data
         response = requests.get(JSONBIN_URL, headers=HEADERS)
 
-        # 🚨 Handle JSONBin Failure
         if response.status_code != 200:
             return jsonify({
                 "error": f"Failed to fetch services. JSONBin Status: {response.status_code}",
@@ -32,18 +32,21 @@ def register_service():
         json_data = response.json().get("record", {})
 
         # ✅ Ensure "services" and "messages" keys exist
-        json_data.setdefault("services", {})  
-        json_data.setdefault("messages", {})  
+        existing_services = json_data.get("services", {})
+        existing_messages = json_data.get("messages", {})
 
-        # ✅ Update the services dictionary
-        json_data["services"][service_name] = {
+        # ✅ Update the services dictionary without affecting messages
+        existing_services[service_name] = {
             "ip": ip,
             "port": port,
             "lastUpdated": datetime.now(timezone.utc).isoformat()
         }
 
-        # ✅ Update JSONBin while keeping both keys
-        put_response = requests.put(JSONBIN_URL, json=json_data, headers=HEADERS)
+        # ✅ Send only the updated data to JSONBin, preserving both `services` and `messages`
+        put_response = requests.put(JSONBIN_URL, json={
+            "services": existing_services, 
+            "messages": existing_messages  # Preserve messages!
+        }, headers=HEADERS)
 
         if put_response.status_code != 200:
             return jsonify({
