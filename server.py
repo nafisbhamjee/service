@@ -164,12 +164,17 @@ def store_message():
 # ==============================
 # 🚀 4️⃣ GET MESSAGES FOR A MICROSERVICE
 # ==============================
-@app.route('/relay/receive/<recipient>', methods=['GET'])
-def get_messages(recipient):
-    """Microservices pull messages from the relay"""
+@app.route('/relay/send', methods=['POST'])
+def store_message():
+    """Microservices push messages to the relay while preserving services"""
     try:
+        data = request.json
+        sender = data.get("sender")
+        recipient = data.get("recipient")
+        message = data.get("message")
+
         response = requests.get(JSONBIN_URL, headers=HEADERS)
-        
+
         # 🚨 Handle JSONBin Failure
         if response.status_code != 200:
             return jsonify({
@@ -179,18 +184,33 @@ def get_messages(recipient):
 
         json_data = response.json().get("record", {})
 
-        # ✅ Ensure "messages" key exists
-        if "messages" not in json_data:
-            json_data["messages"] = {}
+        # ✅ Ensure "services" and "messages" keys exist
+        existing_services = json_data.get("services", {})  # Preserve services
+        existing_messages = json_data.get("messages", {})
 
-        messages = json_data["messages"].get(recipient, [])
+        # ✅ Dynamically create recipient key only when messages are received
+        if recipient not in existing_messages:
+            existing_messages[recipient] = []
 
-        # Clear messages only if recipient exists
-        json_data["messages"][recipient] = []
+        existing_messages[recipient].append({
+            "from": sender,
+            "message": message,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
 
-        requests.put(JSONBIN_URL, json={"messages": json_data["messages"]}, headers=HEADERS)
+        # ✅ Update JSONBin while keeping both keys
+        put_response = requests.put(JSONBIN_URL, json={
+            "services": existing_services,  # Preserve services
+            "messages": existing_messages
+        }, headers=HEADERS)
 
-        return jsonify({"messages": messages})  # ✅ Always return JSON
+        if put_response.status_code != 200:
+            return jsonify({
+                "error": f"Failed to update JSONBin. Status: {put_response.status_code}",
+                "details": put_response.text
+            }), 500
+
+        return jsonify({"status": "Message stored"}), 200
 
     except requests.exceptions.RequestException as e:
         return jsonify({
@@ -203,7 +223,6 @@ def get_messages(recipient):
             "error": "Internal Server Error",
             "details": str(e)
         }), 500
-    
 
 # ==============================
 # 🚀 5️⃣ LIST ALL REGISTERED SERVICES
