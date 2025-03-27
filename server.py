@@ -5,8 +5,8 @@ from datetime import datetime, timedelta, timezone
 app = Flask(__name__)
 
 # JSONBin API Setup
-JSONBIN_URL = "https://api.jsonbin.io/v3/b/67df09398960c979a5767fed"
-HEADERS = {"X-Master-Key": "$2a$10$4j8yKgEgSsJS0KyHF0qcyO1cGcUDvkTCqVCRj6D4Im1FpRuHdD5di"}
+JSONBIN_URL = "https://api.jsonbin.io/v3/b/67e5cc398960c979a579c717"
+HEADERS = {"X-Master-Key": "$2a$10$Wt6X0PEsh.0rDEHUQrSGq.X9/jwxlRvqxtyK.7sGWqZorVCX26392"}
 
 # ==============================
 # 🚀 1️⃣ REGISTER A SERVICE
